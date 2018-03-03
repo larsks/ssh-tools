@@ -1,0 +1,41 @@
+#!/usr/bin/expect -f
+#
+# Attempt to add multiple keys to your ssh-agent using the same passphrase.
+
+proc terminal:password:get {promptString} {
+	exec stty -echo echonl <@stdin
+	puts -nonewline stdout $promptString
+	flush stdout
+	gets stdin password
+	exec stty echo -echonl <@stdin
+	return $password
+}
+
+set password [terminal:password:get "Enter your passphrase:"]
+
+foreach key $argv {
+	puts "* Trying to add key: $key"
+	while {1} {
+		spawn ssh-add $key
+		expect {
+			"Enter passphrase for" {
+				send "$password\n"
+				exp_continue
+			}
+
+			"Identity added:" {
+				puts "* Added key $key"
+				break
+			}
+
+			"Bad passphrase, try again" {
+				set password [terminal:password:get "Enter your passphrase:"]
+				close
+				continue
+			}
+			eof break
+		}
+	}
+}
+
+puts "\nAll done."
